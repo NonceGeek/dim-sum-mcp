@@ -1,19 +1,20 @@
 {
-  "name": "cbeta-mcp-bridge",
+  "name": "dimsum-mcp-bridge",
   "version": "1.0.0",
-  "description": "HTTP to stdio MCP proxy bridge for CBETA MCP Server",
+  "description": "HTTP to stdio MCP proxy bridge for AI Dimsum MCP Server",
   "main": "mcp-bridge.js",
   "bin": {
-    "cbeta-mcp-bridge": "./mcp-bridge.js"
+    "dimsum-mcp-bridge": "./mcp-bridge.js"
   },
   "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
+    "dev": "npx wrangler dev",
+    "deploy": "npx wrangler deploy",
     "typecheck": "tsc --noEmit"
   },
   "keywords": [
     "mcp",
-    "cbeta",
+    "dimsum",
+    "cantonese",
     "proxy",
     "bridge",
     "http",
@@ -26,9 +27,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/cbeta-mcp-workers.git"
+    "url": "https://github.com/yourusername/dimsum-mcp-workers.git"
   },
   "dependencies": {
     "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260214.0"
   }
 }

@@ -1,263 +1,82 @@
-# Cbeta MCP Workers
+# Dimsum MCP Workers
 
-Cloudflare Workers 版本的 Cbeta MCP 服务器，提供 CBETA 佛经数据库的 MCP 工具支持。
+Cloudflare Workers 版本的 AI Dimsum MCP 服务器，提供粤语语料库的 MCP 工具支持。
 
 ## 项目说明
 
-本项目是将 Python FastAPI 版本的 [CbetaMCP](https://github.com/tendayspace/CbetaMCP) 迁移到 Cloudflare Workers 的版本。
+本项目是一个 MCP (Model Context Protocol) 服务器，用于访问 [AI Dimsum API](https://beta.backend.aidimsum.com/docs/html)，让 AI 助手能够查询粤语语料库数据。
 
-## ⚠️ 重要提醒：必须使用自定义域名
+## 功能特性
 
-**Cloudflare Workers 提供的 `*.workers.dev` 域名在某些网络环境下无法正常访问。**
+### 🔍 搜索工具
 
-### ❌ 不可使用
-```
-https://your-worker.your-subdomain.workers.dev  ❌ 无法调用
-```
+- **dimsum_text_search**: 文字搜索，支持繁体和简体中文字符搜索
 
-### ✅ 必须使用
-```
-https://cbeta.yourdomain.com          ✅ 自定义域名
-https://cbeta-mcp.yourdomain.com      ✅ 子域名
-```
+### 📚 目录工具
 
-**你需要在 Cloudflare 中为自己的 Workers 绑定自定义域名后才能正常使用。**
+- **dimsum_get_corpus_apps**: 获取所有可用的语料库应用程序
+- **dimsum_get_corpus_categories**: 获取所有语料库类别
+- **dimsum_get_corpus_category**: 按名称获取特定类别
+- **dimsum_get_corpus_item**: 获取特定的语料库项目
+- **dimsum_get_random_item**: 获取随机语料库项目
+- **dimsum_get_all_items**: 获取所有语料库项目（支持分页）
 
 ---
 
 ## 快速开始
 
-本项目需要**自己部署**到 Cloudflare Workers，并**绑定自定义域名**。请按以下步骤操作：
-
-### 1. Fork 并部署
-
-1. Fork 本项目到你的 GitHub
-2. 克隆到本地：
-   ```bash
-   git clone https://github.com/YOUR_USERNAME/CbetaMCP.git
-   cd CbetaMCP
-   ```
-3. 安装依赖：
-   ```bash
-   npm install
-   ```
-4. 登录 Cloudflare：
-   ```bash
-   npx wrangler login
-   ```
-5. 部署：
-   ```bash
-   npm run deploy
-   ```
-
-### 2. 绑定自定义域名（⚠️ 关键步骤）
-
-**workers.dev 域名无法使用，必须绑定自己的域名。**
-
-#### 步骤 1：添加自定义域名到 Cloudflare
-
-1. 登录 [Cloudflare Dashboard](https://dash.cloudflare.com)
-2. 选择你的 Workers 项目
-3. 进入 **Settings** > **Triggers** > **Custom Domains**
-4. 点击 **Add Custom Domain**
-5. 输入你的域名，例如：
-   - `cbeta.yourdomain.com`
-   - `mcp.yourdomain.com`
-   - `cbeta-mcp.yourdomain.com`
-
-#### 步骤 2：确保域名在 Cloudflare 托管
-
-- 你的域名必须使用 Cloudflare 的 DNS
-- 在 Cloudflare 添加域名后，会提供 DNS 记录
-- 在你的域名注册商处修改 DNS 为 Cloudflare 提供的地址
-
-#### 步骤 3：验证域名生效
-
-```bash
-# 测试你的自定义域名
-curl https://cbeta.yourdomain.com/mcp -X POST \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test"}}}'
-```
-
-**看到返回 JSON 数据即表示成功。**
-
-### 3. 获取你的 Workers 地址
-
-部署并绑定自定义域名后，你会得到这样的地址：
-```
-https://cbeta.yourdomain.com
-```
-
-**注意**：不要使用 Cloudflare 提供的 `*.workers.dev` 地址，那个无法调用。
-
-### 3. 配置 MCP 客户端
-
-本项目包含 `mcp-bridge.js` 文件，它作为 MCP 客户端与 Cloudflare Workers 之间的桥梁。你需要配置两个环境变量：
-
-#### 环境变量说明
-
-| 环境变量 | 说明 | 示例 |
-|---------|------|------|
-| `SERVER_URL` | **必需** - 你的 Cloudflare Workers 自定义域名地址 | `https://cbeta.yourdomain.com/mcp` |
-| `MCP_BRIDGE_PATH` | **可选** - mcp-bridge.js 的路径，默认为 `./mcp-bridge.js` | `/absolute/path/to/mcp-bridge.js` |
-
-#### 配置示例
-
-**方式一：使用默认相对路径（推荐）**
-
-确保 `mcp-bridge.js` 与 MCP 配置文件在同一目录：
-
-```json
-{
-  "mcpServers": {
-    "cbeta": {
-      "command": "node",
-      "args": ["./mcp-bridge.js"],
-      "env": {
-        "SERVER_URL": "https://cbeta.yourdomain.com/mcp"
-      }
-    }
-  }
-}
-```
-
-**⚠️ 注意**：使用你自己的自定义域名，不是 `workers.dev`
-
-**方式二：使用环境变量指定路径**
-
-先设置环境变量：
-```bash
-# Linux/Mac
-export MCP_BRIDGE_PATH="/path/to/cbeta-mcp/mcp-bridge.js"
-export SERVER_URL="https://cbeta.yourdomain.com/mcp"
-
-# Windows PowerShell
-$env:MCP_BRIDGE_PATH="C:/path/to/cbeta-mcp/mcp-bridge.js"
-$env:SERVER_URL="https://cbeta.yourdomain.com/mcp"
-```
-
-然后配置 MCP 客户端：
-```json
-{
-  "mcpServers": {
-    "cbeta": {
-      "command": "node",
-      "args": ["./mcp-bridge.js"],
-      "env": {
-        "SERVER_URL": "https://cbeta.yourdomain.com/mcp"
-      }
-    }
-  }
-}
-```
-
-## 技术栈
-
-- Cloudflare Workers
-- TypeScript
-- Zod (数据验证)
-- MCP (Model Context Protocol)
-
-## 安装
+### 1. 安装依赖
 
 ```bash
 npm install
 ```
 
-## 开发
+### 2. 本地开发
 
 ```bash
 npm run dev
 ```
 
-## 部署
+服务器将在 `http://localhost:8787` 启动。
+
+### 3. 部署到 Cloudflare Workers
 
 ```bash
+# 登录 Cloudflare
+npx wrangler login
+
+# 部署
 npm run deploy
 ```
 
-## 配置与使用
-
-部署完成后，你需要在 MCP 客户端中配置该 MCP 服务器。
-
-### 📋 MCP 桥接脚本使用指南
-
-由于 Cloudflare Workers 只支持 HTTP 传输，而 MCP 客户端通常使用 stdio，所以需要 `mcp-bridge.js` 作为中间桥梁。
-
-#### 项目文件结构
-
-下载/克隆项目后，你会得到以下文件：
-
+部署后会得到一个 Worker URL，例如：
 ```
-CbetaMCP/
-├── mcp-bridge.js          # ⭐ 桥接脚本（使用此文件）
-├── src/                   # 源代码（无需修改）
-├── package.json           # 项目配置
-├── wrangler.toml          # Workers 配置
-└── README.md              # 本文档
+https://dimsummcp.your-subdomain.workers.dev
 ```
 
-你只需要关注 `mcp-bridge.js` 文件，其他是部署到 Cloudflare 所需的代码。
+💡🤔 如果在生产环境下，建议给 Workers URL 配上自己的域名。
 
-#### 路径配置方式
+## MCP 客户端配置
 
-`mcp-bridge.js` 支持多种路径写法：
+### Cursor
 
-| 方式 | 示例 | 适用场景 |
-|------|------|----------|
-| **相对路径（推荐）** | `"./mcp-bridge.js"` | 脚本与 MCP 配置文件同目录 |
-| **绝对路径(Linux/Mac)** | `"/home/user/CbetaMCP/mcp-bridge.js"` | 指定完整路径 |
-| **绝对路径(Windows)** | `"C:/Users/name/CbetaMCP/mcp-bridge.js"` | Windows 系统（使用正斜杠） |
-| **用户目录** | `"~/CbetaMCP/mcp-bridge.js"` | 存放在用户主目录下 |
-
-### 🛠️ 各客户端配置示例
-
-以下配置适用于所有 MCP 客户端。只需将 `SERVER_URL` 替换为你自己的 Workers 地址，并根据实际情况调整 `mcp-bridge.js` 的路径。
-
-#### 配置模板
+在 Cursor 的 MCP 设置中添加：
 
 ```json
 {
   "mcpServers": {
-    "cbeta": {
+    "dimsum": {
       "command": "node",
-      "args": ["./mcp-bridge.js"],
+      "args": ["/absolute/path/to/dim-sum-mcp/mcp-bridge.js"],
       "env": {
-        "SERVER_URL": "https://cbeta.yourdomain.com/mcp"
+        "SERVER_URL": "https://dimsummcp.your-subdomain.workers.dev/mcp"
       }
     }
   }
 }
 ```
 
-**⚠️ 重要提醒**：
-- `args`: mcp-bridge.js 的路径（相对或绝对路径）
-- `SERVER_URL`: 你的 Cloudflare Workers **自定义域名**地址（**不是 workers.dev**）
-
----
-
-#### 本地开发配置
-
-```json
-{
-  "mcpServers": {
-    "cbeta": {
-      "command": "node",
-      "args": ["./mcp-bridge.js"],
-      "env": {
-        "SERVER_URL": "http://localhost:8787/mcp"
-      }
-    }
-  }
-}
-```
-
-**注意**：本地开发使用 `localhost`，生产环境必须使用自定义域名。
-
----
-
-#### Claude Desktop
+### Claude Desktop
 
 配置文件位置：
 - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
@@ -266,11 +85,29 @@ CbetaMCP/
 ```json
 {
   "mcpServers": {
-    "cbeta": {
+    "dimsum": {
       "command": "node",
-      "args": ["./mcp-bridge.js"],
+      "args": ["/absolute/path/to/dim-sum-mcp/mcp-bridge.js"],
       "env": {
-        "SERVER_URL": "https://your-worker-name.your-subdomain.workers.dev/mcp"
+        "SERVER_URL": "https://dimsummcp.your-subdomain.workers.dev/mcp"
+      }
+    }
+  }
+}
+```
+
+### 本地开发配置
+
+使用本地开发服务器时：
+
+```json
+{
+  "mcpServers": {
+    "dimsum": {
+      "command": "node",
+      "args": ["/absolute/path/to/dim-sum-mcp/mcp-bridge.js"],
+      "env": {
+        "SERVER_URL": "http://localhost:8787/mcp"
       }
     }
   }
@@ -279,160 +116,176 @@ CbetaMCP/
 
 ---
 
-#### Cursor
+## 使用示例
 
-Settings > Features > MCP Servers：
+配置完成后，你可以在对话中直接使用这些工具：
 
-```json
-{
-  "mcpServers": {
-    "cbeta": {
-      "command": "node",
-      "args": ["./mcp-bridge.js"],
-      "env": {
-        "SERVER_URL": "https://cbeta.yourdomain.com/mcp"
-      }
-    }
-  }
-}
+### 搜索粤语字词
+
+```
+用户: 帮我搜索粤语词"为"的信息
+AI: 使用 dimsum_text_search 工具搜索...
+```
+
+### 获取随机粤语词
+
+```
+用户: 给我一个随机的粤语词
+AI: 使用 dimsum_get_random_item 从 zyzdv2 语料库获取...
+```
+
+### 浏览语料库类别
+
+```
+用户: 有哪些粤语语料库类别？
+AI: 使用 dimsum_get_corpus_categories 获取列表...
 ```
 
 ---
 
-#### Cline
+## 工具详解
 
-MCP Server 配置：
+### 1. dimsum_text_search
 
+在粤语语料库中搜索字词。
+
+**参数：**
+- `keyword` (必填): 搜索关键词
+- `table_name` (必填): 表名，目前支持 "cantonese_corpus_all"
+- `limit` (可选): 返回结果数量限制
+- `supabase_url` (可选): 自定义 Supabase URL
+
+**返回示例：**
 ```json
-{
-  "mcpServers": {
-    "cbeta": {
-      "command": "node",
-      "args": ["./mcp-bridge.js"],
-      "env": {
-        "SERVER_URL": "https://cbeta.yourdomain.com/mcp"
-      }
-    }
+[
+  {
+    "unique_id": "uuid",
+    "data": "為",
+    "note": {
+      "meaning": ["作为", "能够"],
+      "pinyin": ["wai4"]
+    },
+    "category": "zyzd",
+    "tags": ["word"]
   }
-}
+]
 ```
 
-**提示**：Cline 支持使用环境变量 `${env:VAR_NAME}`
+### 2. dimsum_get_corpus_categories
+
+获取所有可用的语料库类别。
+
+**返回示例：**
+```json
+[
+  {
+    "id": 1,
+    "name": "zyzd",
+    "description": "粤语字典"
+  },
+  {
+    "id": 2,
+    "name": "yyjq",
+    "description": "粤语金曲"
+  }
+]
+```
+
+### 3. dimsum_get_corpus_item
+
+通过 unique_id 或 data 获取特定语料项。
+
+**参数：**
+- `unique_id` (可选): 唯一标识符
+- `data` (可选): 数据字段
+
+**注意：** 必须提供 `unique_id` 或 `data` 之一。
+
+### 4. dimsum_get_random_item
+
+从指定语料库获取随机项目。
+
+**参数：**
+- `corpus_name` (必填): 语料库名称，如 "zyzdv2", "yyjq"
+
+### 5. dimsum_get_all_items
+
+获取语料库中的所有项目，支持分页和过滤。
+
+**参数：**
+- `corpus_name` (必填): 语料库名称
+- `cursor` (可选): 游标位置
+- `limit` (可选): 返回数量限制
+- `lifecycle_stage` (可选): 生命周期阶段过滤
+  - `draft`: 草稿
+  - `normalized`: 已规范化
+  - `cleaned`: 已清理
+  - `active`: 活跃状态
 
 ---
 
-#### Windsurf
+## 技术栈
 
-MCP 配置面板：
-
-```json
-{
-  "mcpServers": {
-    "cbeta": {
-      "command": "node",
-      "args": ["./mcp-bridge.js"],
-      "env": {
-        "SERVER_URL": "https://cbeta.yourdomain.com/mcp"
-      }
-    }
-  }
-}
-```
+- **Cloudflare Workers**: 边缘计算平台
+- **TypeScript**: 类型安全
+- **Zod**: 数据验证
+- **MCP Protocol**: Model Context Protocol
 
 ---
 
-#### OpenCode
+## 开发
 
-配置方法：
-1. 打开 OpenCode 设置
-2. 找到 MCP Servers 配置
-3. 添加以下配置：
+### 项目结构
 
-```json
-{
-  "mcpServers": {
-    "cbeta": {
-      "command": "node",
-      "args": ["./mcp-bridge.js"],
-      "env": {
-        "SERVER_URL": "https://cbeta.yourdomain.com/mcp"
-      }
-    }
-  }
-}
 ```
-4. 保存并刷新配置
+dim-sum-mcp/
+├── src/
+│   ├── index.ts              # Workers 入口
+│   ├── mcp/
+│   │   ├── server.ts         # MCP 服务器实现
+│   │   └── types.ts          # 类型定义
+│   ├── tools/
+│   │   ├── search/           # 搜索工具
+│   │   └── catalog/          # 目录工具
+│   └── types/
+│       └── index.ts          # 类型定义
+├── mcp-bridge.js             # stdio 到 HTTP 桥接
+├── package.json
+├── wrangler.toml             # Cloudflare Workers 配置
+└── tsconfig.json
+```
 
-### 调用示例
-
-配置完成后，你可以在对话中直接调用 CBETA 工具，例如：
-
-- "搜索心经相关内容"
-- "查找《金刚经》的详细信息"
-- "列出所有禅宗典籍"
-
-AI 助手会自动调用相应的 MCP 工具来获取 CBETA 佛经数据。
-
-### 直接 HTTP 调用
-
-你也可以直接通过 HTTP POST 请求调用 MCP 服务：
+### 类型检查
 
 ```bash
-curl -X POST https://cbeta.yourdomain.com/mcp \
-  -H "Content-Type: application/json" \
-  -d '{
-    "jsonrpc": "2.0",
-    "id": 1,
-    "method": "tools/list"
-  }'
+npm run typecheck
 ```
 
-调用工具示例：
+### 添加新工具
 
-```bash
-curl -X POST https://cbeta.yourdomain.com/mcp \
-  -H "Content-Type: application/json" \
-  -d '{
-    "jsonrpc": "2.0",
-    "id": 1,
-    "method": "tools/call",
-    "params": {
-      "name": "search_cbeta_keyword",
-      "arguments": {
-        "keyword": "般若"
-      }
-    }
-  }'
-```
+1. 在 `src/tools/` 下创建新的工具定义
+2. 使用 Zod 定义参数 schema
+3. 实现 handler 函数
+4. 在 `src/index.ts` 中注册工具
 
-## API 端点
+---
 
-- `POST /mcp` - MCP 协议接口
-  - `tools/list` - 列出所有可用工具
-  - `tools/call` - 调用指定工具
+## API 数据源
 
-## 可用工具
+本项目使用 [AI Dimsum API](https://beta.backend.aidimsum.com) 作为数据源。
 
-### 搜索工具
-- `search_cbeta_keyword` - 关键词搜索
-- `search_cbeta_work` - 典籍搜索
-- `search_cbeta_author` - 作者搜索
-- `search_cbeta_category` - 分类搜索
+API 文档: https://beta.backend.aidimsum.com/docs
 
-### 目录工具
-- `catalog_cbeta_sutra` - 经文目录
-- `catalog_cbeta_author` - 作者目录
-- `catalog_cbeta_dynasty` - 朝代目录
-
-### 典籍工具
-- `work_cbeta_info` - 典籍信息
-- `work_cbeta_content` - 典籍内容
-- `work_cbeta_toc` - 目录结构
-
-## CBETA API
-
-本项目使用 CBETA API: https://api.cbetaonline.cn/
+---
 
 ## 许可证
 
 MIT
+
+---
+
+## 相关链接
+
+- [Model Context Protocol](https://modelcontextprotocol.io/)
+- [AI Dimsum API Documentation](https://beta.backend.aidimsum.com/docs)
+- [Cloudflare Workers](https://workers.cloudflare.com/)

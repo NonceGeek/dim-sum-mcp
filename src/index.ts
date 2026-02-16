@@ -1,7 +1,6 @@
 import { MCPServer } from './mcp/server.js';
 import { searchTools } from './tools/search/index.js';
 import { catalogTools } from './tools/catalog/index.js';
-import { workTools } from './tools/work/index.js';
 import type { JSONRPCRequest } from './types/index.js';
 
 const server = new MCPServer();
@@ -9,7 +8,6 @@ const server = new MCPServer();
 // Register all tools
 searchTools.forEach((tool) => server.registerTool(tool));
 catalogTools.forEach((tool) => server.registerTool(tool));
-workTools.forEach((tool) => server.registerTool(tool));
 
 export interface Env {
   APP_NAME: string;
@@ -48,6 +46,16 @@ export default {
     try {
       const body = await request.json() as JSONRPCRequest;
       const response = await server.handleRequest(body);
+
+      // If response is null, this was a notification - return 204 No Content
+      if (response === null) {
+        return new Response(null, {
+          status: 204,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+          },
+        });
+      }
 
       return new Response(JSON.stringify(response), {
         status: 200,

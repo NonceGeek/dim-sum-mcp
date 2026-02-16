@@ -49,23 +49,46 @@ async function handleRequest(jsonLine) {
   try {
     const request = JSON.parse(jsonLine);
     
+    // Check if this is a notification (no id field)
+    const isNotification = !('id' in request) || request.id === undefined;
+    
     // Forward request to HTTP MCP server
     const response = await postToServer(SERVER_URL, request);
     
-    // Write response to stdout
-    console.log(JSON.stringify(response));
+    // Only write response for requests, not notifications
+    // Notifications don't expect a response
+    if (!isNotification && response) {
+      console.log(JSON.stringify(response));
+    }
   } catch (error) {
     console.error('Error:', error.message);
-    // Send JSON-RPC error response
-    const errorResponse = {
-      jsonrpc: '2.0',
-      id: null,
-      error: {
-        code: -32603,
-        message: error.message
+    
+    // Only send error response if we have an id (it was a request)
+    try {
+      const request = JSON.parse(jsonLine);
+      if ('id' in request && request.id !== undefined) {
+        const errorResponse = {
+          jsonrpc: '2.0',
+          id: request.id,
+          error: {
+            code: -32603,
+            message: error.message
+          }
+        };
+        console.log(JSON.stringify(errorResponse));
       }
-    };
-    console.log(JSON.stringify(errorResponse));
+    } catch (parseError) {
+      // If we can't parse the request, send error with null id
+      const errorResponse = {
+        jsonrpc: '2.0',
+        id: null,
+        error: {
+          code: -32700,
+          message: 'Parse error'
+        }
+      };
+      console.log(JSON.stringify(errorResponse));
+    }
   }
 }
 
@@ -93,11 +116,28 @@ function postToServer(url, data) {
       });
       
       res.on('end', () => {
-        try {
-          const response = JSON.parse(responseData);
-          resolve(response);
-        } catch (e) {
-          reject(new Error(`Invalid JSON response: ${responseData}`));
+        // Handle 204 No Content (notification response)
+        if (res.statusCode === 204) {
+          resolve(null);
+          return;
+        }
+        
+        // Handle non-200 status codes
+        if (res.statusCode !== 200) {
+          reject(new Error(`HTTP ${res.statusCode}: ${responseData || 'No response body'}`));
+          return;
+        }
+        
+        // Parse JSON response
+        if (responseData.trim()) {
+          try {
+            const response = JSON.parse(responseData);
+            resolve(response);
+          } catch (e) {
+            reject(new Error(`Invalid JSON response: ${responseData}`));
+          }
+        } else {
+          resolve(null);
         }
       });
     });

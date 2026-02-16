@@ -10,21 +10,44 @@ import { zodToJsonSchema } from './types.js';
 
 export class MCPServer {
   private tools: Map<string, ToolDefinition> = new Map();
+  private initialized: boolean = false;
 
   registerTool(definition: ToolDefinition): void {
     this.tools.set(definition.name, definition);
   }
 
-  async handleRequest(request: JSONRPCRequest): Promise<JSONRPCResponse> {
+  async handleRequest(request: JSONRPCRequest): Promise<JSONRPCResponse | null> {
     try {
+      // Check if this is a notification (no id field)
+      const isNotification = !('id' in request) || request.id === undefined;
+
       switch (request.method) {
         case 'initialize':
           return this.handleInitialize(request.id, request.params);
+        
+        case 'notifications/initialized':
+          // This is a notification - handle it but don't return a response
+          this.handleInitializedNotification();
+          return null; // Return null for notifications
+        
         case 'tools/list':
           return this.handleListTools(request.id);
+        
         case 'tools/call':
           return this.handleCallTool(request.id, request.params);
+        
+        case 'ping':
+          // Optional: handle ping requests
+          return this.handlePing(request.id);
+        
         default:
+          // For unknown methods:
+          // - If it's a notification, ignore it (return null)
+          // - If it's a request, return an error
+          if (isNotification) {
+            // Silently ignore unknown notifications
+            return null;
+          }
           return this.createErrorResponse(
             request.id,
             -32601,
@@ -32,12 +55,31 @@ export class MCPServer {
           );
       }
     } catch (error) {
-      return this.createErrorResponse(
-        request.id,
-        -32603,
-        error instanceof Error ? error.message : 'Internal error'
-      );
+      // Only return error responses for requests, not notifications
+      if ('id' in request && request.id !== undefined) {
+        return this.createErrorResponse(
+          request.id,
+          -32603,
+          error instanceof Error ? error.message : 'Internal error'
+        );
+      }
+      // For notifications, just return null (no response)
+      return null;
     }
+  }
+
+  private handleInitializedNotification(): void {
+    // Mark server as initialized
+    this.initialized = true;
+    // Client initialized successfully
+  }
+
+  private handlePing(id: string | number | null): JSONRPCResponse {
+    return {
+      jsonrpc: '2.0',
+      id,
+      result: {},
+    };
   }
 
   private handleInitialize(
@@ -53,7 +95,7 @@ export class MCPServer {
           tools: {},
         },
         serverInfo: {
-          name: 'cbeta-mcp-server',
+          name: 'dimsum-mcp-server',
           version: '1.0.0',
         },
       },
